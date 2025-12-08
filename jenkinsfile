@@ -1,27 +1,58 @@
 pipeline {
     agent any
+    
     tools {
-        maven 'Maven'
+        maven 'M3'  // Make sure Maven is configured as 'M3' in Jenkins
     }
+    
     environment {
-        APP_ENV = "DEV"
+        SONAR_HOST_URL = "http://192.168.33.10:9000"
     }
+    
     stages {
-        stage('Code Checkout') {
+        // Stage 1: GIT - From page 18
+        stage('GIT') {
             steps {
-                git branch: 'main',
+                echo "Getting Project from Git"
+                git branch: 'main', 
                     url: 'https://github.com/kaddachiabdelkader1234/devops.git'
             }
         }
-        stage('Code Build') {
+        
+        // Stage 2: Maven Clean - From page 19
+        stage('Maven CLEAN') {
             steps {
-                sh 'mvn -version'
+                sh 'mvn clean'
+            }
+        }
+        
+        // Stage 3: Maven Compile - From page 19
+        stage('Maven COMPILE') {
+            steps {
+                sh 'mvn compile'
+            }
+        }
+        
+        // Stage 4: SonarQube Analysis - From page 20
+        stage('Maven SONARQUBE') {
+            steps {
+                withSonarQubeEnv('sonarqube') {
+                    sh 'mvn sonar:sonar'
+                }
             }
         }
     }
+    
     post {
-        always { echo "======always======" }
-        success { echo "=====pipeline executed successfully =====" }
-        failure { echo "======pipeline execution failed======" }
+        always {
+            echo "Pipeline execution completed"
+        }
+        success {
+            echo "SUCCESS: Analysis sent to SonarQube"
+            echo "View results at: ${SONAR_HOST_URL}"
+        }
+        failure {
+            echo "FAILURE: Check errors above"
+        }
     }
 }
