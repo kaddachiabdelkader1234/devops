@@ -1,27 +1,68 @@
 pipeline {
     agent any
+    
     tools {
         maven 'Maven'
+        jdk   'JDK17'
     }
-    environment {
-        APP_ENV = "DEV"
-    }
+    
     stages {
-        stage('Code Checkout') {
+        stage('Checkout Git') {
             steps {
-                git branch: 'main',
+                echo '📥 Cloning repository...'
+                git credentialsId: 'github-credentials', 
+                    branch: 'main', 
                     url: 'https://github.com/kaddachiabdelkader1234/devops.git'
             }
         }
-        stage('Code Build') {
+        
+        stage('Build with Maven') {
             steps {
-                sh 'mvn -version'
+                echo '📦 Building with Maven...'
+                sh 'mvn clean install -DskipTests'
+            }
+        }
+        
+        stage('SonarQube Analysis') {
+            steps {
+                echo '🔍 Analyzing code quality...'
+                script {
+                    withSonarQubeEnv('devops') {
+                        sh 'mvn sonar:sonar -Dsonar.projectKey=student-management'
+                    }
+                }
+            }
+        }
+        
+        stage('Build Docker Image') {
+            steps {
+                echo '🐳 Building Docker image...'
+                sh 'docker build -t abdelkaderkaddachi/student-management -f Dockerfile .'
+            }
+        }
+        
+        stage('Push to Docker Hub') {
+            steps {
+                echo '📤 Pushing to Docker Hub...'
+                script {
+                    withCredentials([usernamePassword(
+                        credentialsId: 'devops1', 
+                        usernameVariable: 'DOCKER_USER', 
+                        passwordVariable: 'DOCKER_PASS')]) {
+                        sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
+                        sh 'docker push abdelkaderkaddachi/student-management:latest'
+                    }
+                }
             }
         }
     }
+    
     post {
-        always { echo "======always======" }
-        success { echo "=====pipeline executed successfully =====" }
-        failure { echo "======pipeline execution failed======" }
+        success {
+            echo '✅ Pipeline successful!'
+        }
+        failure {
+            echo '❌ Pipeline failed!'
+        }
     }
 }
